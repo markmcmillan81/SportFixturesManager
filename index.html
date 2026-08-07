@@ -20,16 +20,34 @@
 </head>
 <body>
 <div id="app" class="app"></div>
+<pre id="boot-error" hidden style="white-space:pre-wrap;word-break:break-word;font:12px/1.5 monospace;background:#ffe0d9;border-left:2px solid #ec3013;padding:12px;margin:12px"></pre>
 <nav id="tabbar" class="tabbar" hidden></nav>
 <div id="sheet" class="sheet-wrap" hidden></div>
 <div id="toast" class="toast" hidden></div>
-<script src="js/engines.js"></script>
-<script src="js/store.js"></script>
-<script src="js/ui.js"></script>
+<script src="js/engines.js?v=12"></script>
+<script src="js/store.js?v=12"></script>
+<script src="js/ui.js?v=12"></script>
 <script>
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      reg.addEventListener('updatefound', () => {
+        const sw = reg.installing;
+        if (!sw) return;
+        sw.addEventListener('statechange', () => {
+          if (sw.state === 'installed' && navigator.serviceWorker.controller) location.reload();
+        });
+      });
+    }).catch(() => {});
+  });
 }
+window.addEventListener('error', e => {
+  const box = document.getElementById('boot-error');
+  if (box) {
+    box.hidden = false;
+    box.textContent = 'Startup error: ' + (e.message || '') + ' — ' + (e.filename || '') + ':' + (e.lineno || '');
+  }
+});
 </script>
 </body>
 </html>

@@ -1,6 +1,7 @@
-/* FlexPlay service worker — offline-first shell.
-   Bump CACHE on every release so returning devices pick up new code. */
-const CACHE = 'flexplay-v2';
+/* FlexPlay service worker — network-first for app code, cache as offline fallback.
+   Network-first means a new deploy is picked up immediately; the cache only serves
+   when the device is genuinely offline. Bump CACHE on each release. */
+const CACHE = 'flexplay-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -15,7 +16,11 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE)
+      .then(c => Promise.all(ASSETS.map(a => c.add(a).catch(() => {}))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', e => {
@@ -26,20 +31,24 @@ self.addEventListener('activate', e => {
   );
 });
 
+self.addEventListener('message', e => {
+  if (e.data === 'skipWaiting') self.skipWaiting();
+});
+
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
-  // App shell: cache first, refresh in background. Fonts: cache on first use.
+  if (new URL(req.url).origin !== location.origin) return; // let fonts etc. go straight out
+
   e.respondWith(
-    caches.match(req).then(hit => {
-      const net = fetch(req).then(res => {
-        if (res && res.status === 200 && (res.type === 'basic' || res.type === 'cors')) {
+    fetch(req)
+      .then(res => {
+        if (res && res.status === 200) {
           const copy = res.clone();
           caches.open(CACHE).then(c => c.put(req, copy));
         }
         return res;
-      }).catch(() => hit);
-      return hit || net;
-    })
+      })
+      .catch(() => caches.match(req).then(hit => hit || caches.match('./index.html')))
   );
 });
