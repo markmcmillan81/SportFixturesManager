@@ -4,6 +4,7 @@
   'use strict';
 
   const E = Engines, S = Store;
+  const BUILD = '1.1';
   const app = document.getElementById('app');
   const tabbar = document.getElementById('tabbar');
   const sheetEl = document.getElementById('sheet');
@@ -62,7 +63,8 @@
         <div class="row row-static"><div class="h3">Works with no signal</div><div class="small">Everything saves on the device. Add it to your home screen and it opens like an app.</div></div>
         <div class="row row-static"><div class="h3">Players keep a record</div><div class="small">Each player has a permanent reference. Matches, wins and points follow them across events.</div></div>
       </div>
-      <button class="btn btn-primary" data-act="intro-done" style="margin-top:20px">Build your first tournament →</button>
+      <button class="btn btn-primary" data-act="intro-done" onclick="window.FlexPlayStart&amp;&amp;window.FlexPlayStart()" style="margin-top:20px">Build your first tournament →</button>
+      <div class="tiny" style="margin-top:14px">Build ${BUILD}</div>
     </div>`;
   }
 
@@ -940,7 +942,12 @@
     const el = e.target.closest('[data-act]');
     if (!el) return;
     e.preventDefault();
-    handle(el.dataset.act, el);
+    try {
+      handle(el.dataset.act, el);
+    } catch (err) {
+      console.error(err);
+      toast('Something went wrong: ' + (err && err.message ? err.message : err));
+    }
   });
 
   document.addEventListener('keydown', e => {
@@ -961,8 +968,26 @@
   window.addEventListener('offline', () => toast('Offline — everything still saves on this device'));
   window.addEventListener('hashchange', render);
 
+  /* Direct fallback for the intro button, in case delegated clicks are blocked. */
+  window.FlexPlayStart = function () {
+    try {
+      S.db.seenIntro = true; S.save();
+      view.draft = S.newDraft(); view.step = 1;
+      go('builder');
+    } catch (err) { console.error(err); }
+  };
+
   /* ---------- boot ---------- */
-  S.load();
-  if (S.db.events.length) view.eventId = S.db.events[0].id;
-  render();
+  try {
+    S.load();
+    if (S.db.events.length) view.eventId = S.db.events[0].id;
+    render();
+  } catch (err) {
+    app.innerHTML = '<div style="padding:24px"><div style="font-size:11px;font-weight:800;'
+      + 'letter-spacing:.12em;text-transform:uppercase;color:#ec3013">FlexPlay could not start</div>'
+      + '<p style="font-size:14px;line-height:1.5;margin:10px 0 14px">Send this message to your developer:</p>'
+      + '<pre style="white-space:pre-wrap;word-break:break-word;font-size:12px;background:#eae9e9;'
+      + 'padding:12px;margin:0">' + esc(err && (err.stack || err.message) || String(err)) + '</pre></div>';
+    console.error(err);
+  }
 })();
