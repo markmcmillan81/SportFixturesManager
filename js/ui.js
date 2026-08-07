@@ -4,7 +4,7 @@
   'use strict';
 
   const E = Engines, S = Store;
-  const BUILD = '1.2';
+  const BUILD = '1.4';
   const app = document.getElementById('app');
   const tabbar = document.getElementById('tabbar');
   const sheetEl = document.getElementById('sheet');
